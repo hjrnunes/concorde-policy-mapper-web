@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: concorde-policy-mapper-web
+  labels:
+    app: concorde-policy-mapper-web
 spec:
   replicas: 1
   selector:
@@ -14,19 +16,20 @@ spec:
     spec:
       containers:
         - name: web
-          image: concorde-policy-mapper-web:latest
+          image: image-registry.openshift-image-registry.svc:5000/concorde-policy-mapper-web/concorde-policy-mapper-web:latest
           ports:
             - containerPort: 8080
           env:
             - name: MODEL_BASE_URL
-              value: ""
+              value: "https://gemma-4-26b-a4b-it-model-serving.apps.rosa.u7s1k8g5z8a0s2l.c3qf.p3.openshiftapps.com/v1"
             - name: MODEL_NAME
-              value: ""
+              value: "gemma-4-26b-a4b-it"
             - name: MODEL_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: concorde-policy-mapper-web
                   key: api-key
+                  optional: true
             - name: NEXUS_BASE_DIR
               value: /opt/nexus
             - name: RUNS_DIR
@@ -44,4 +47,11 @@ spec:
             httpGet:
               path: /
               port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
             initialDelaySeconds: 10
+            periodSeconds: 30
