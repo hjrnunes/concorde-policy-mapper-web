@@ -1,2 +1,99 @@
 {% extends "base.html" %}
-{% block content %}{% for s in comparison.summaries %}<div>{{ s.name }}</div>{% endfor %}{% endblock %}
+
+{% block title %}Comparison — Concorde Policy Mapper{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl">
+  <h2 class="text-2xl font-bold text-gray-900 mb-6">Run Comparison</h2>
+
+  <!-- Summary cards -->
+  <div class="grid grid-cols-1 md:grid-cols-{{ comparison.summaries | length }} gap-4 mb-8">
+    {% for s in comparison.summaries %}
+    <div class="bg-white rounded-lg border border-gray-200 p-5">
+      <h3 class="font-semibold text-gray-900">{{ s.name }}</h3>
+      <div class="mt-2 text-sm text-gray-600">{{ s.risk_count }} risks</div>
+      <div class="mt-1 text-xs text-gray-400">{{ s.source_documents | join(", ") }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Overlap summary -->
+  <div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-3">Risk Overlap</h3>
+    <div class="flex gap-4">
+      <div class="text-center p-4 bg-emerald-50 rounded-lg flex-1">
+        <p class="text-3xl font-bold text-emerald-700">{{ comparison.shared_risks | length }}</p>
+        <p class="text-sm text-emerald-600">Shared</p>
+      </div>
+      {% for name in comparison.run_names %}
+      <div class="text-center p-4 bg-amber-50 rounded-lg flex-1">
+        <p class="text-3xl font-bold text-amber-700">{{ comparison.unique_risks[name] | length }}</p>
+        <p class="text-sm text-amber-600">Unique to {{ name }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Shared risks table -->
+  {% if comparison.shared_risks %}
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 p-4 border-b border-gray-200">Shared Risks</h3>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Risk</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Taxonomy</th>
+            {% for name in comparison.run_names %}
+            <th class="px-4 py-2 text-center text-xs font-semibold text-gray-500 uppercase">{{ name }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for sr in comparison.shared_risks %}
+          <tr class="border-t border-gray-100">
+            <td class="px-4 py-2 text-gray-900">{{ sr.risk_name }}</td>
+            <td class="px-4 py-2 text-gray-600 text-xs">{{ sr.taxonomy }}</td>
+            {% for name in comparison.run_names %}
+            {% set run_data = sr.per_run.get(name, {}) %}
+            <td class="px-4 py-2 text-center">
+              {% if run_data %}
+              <span class="text-xs">conf {{ "%.2f" | format(run_data.confidence) }}</span>
+              <span class="text-xs text-gray-400 block">{{ run_data.evidence_count }} ev</span>
+              {% else %}
+              <span class="text-xs text-gray-400">—</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Unique risks -->
+  {% for name in comparison.run_names %}
+  {% set uniques = comparison.unique_risks[name] %}
+  {% if uniques %}
+  <div class="bg-white rounded-lg border border-gray-200 p-6 mb-6" x-data="{ open: false }">
+    <button @click="open = !open" class="w-full flex items-center justify-between">
+      <h3 class="text-lg font-semibold text-gray-900">Unique to {{ name }} ({{ uniques | length }})</h3>
+      <svg :class="open ? 'rotate-180' : ''" class="w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </button>
+    <div x-show="open" x-cloak class="mt-4 space-y-2">
+      {% for r in uniques %}
+      <div class="flex items-center gap-3 p-2 bg-gray-50 rounded">
+        <span class="text-sm text-gray-900">{{ r.risk_name }}</span>
+        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{{ r.taxonomy }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endblock %}
