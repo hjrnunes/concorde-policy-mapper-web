@@ -150,7 +150,7 @@
 
 <script>
 function riskDetailApp() {
-  const mitigations = {{ risk_json }}.mitigations || [];
+  const mitigations = {{ risk_json | safe }}.mitigations || [];
   const riskControls = [...new Set(mitigations.map(m => m.risk_control).filter(Boolean))].sort();
   const categories = [...new Set(mitigations.map(m => m.category).filter(Boolean))].sort();
 
