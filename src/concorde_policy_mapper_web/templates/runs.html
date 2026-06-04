@@ -1,0 +1,4 @@
+{% extends "base.html" %}
+{% block content %}
+{% if runs %}{% for run in runs %}<div>{{ run.name }}</div>{% endfor %}{% else %}<p>No runs found.</p>{% endif %}
+{% endblock %}
