@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y git libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
 
 RUN git clone https://github.com/IBM/ai-atlas-nexus.git /opt/nexus && \
     cd /opt/nexus && git checkout 30f29c3bb74a872dbdbe75601e3772f3ce7c659b
