@@ -41,7 +41,10 @@ def list_runs(runs_dir: Path) -> list[RunSummary]:
         extraction_path = d / "risk-extraction.json"
         if not extraction_path.exists():
             continue
-        data = json.loads(extraction_path.read_text())
+        try:
+            data = json.loads(extraction_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
         docs = data.get("source_documents", [])
         doc_names = [Path(p).name for p in docs]
         metadata = data.get("metadata", {})
@@ -58,6 +61,8 @@ def list_runs(runs_dir: Path) -> list[RunSummary]:
 
 def load_run(runs_dir: Path, name: str) -> dict:
     d = runs_dir / name
+    if ".." in name or not d.resolve().is_relative_to(runs_dir.resolve()):
+        raise FileNotFoundError(f"Run '{name}' not found")
     extraction_path = d / "risk-extraction.json"
     if not extraction_path.exists():
         raise FileNotFoundError(f"Run '{name}' not found at {d}")
@@ -75,9 +80,12 @@ def load_category_map(sssom_path: Path) -> dict[str, dict[str, set[str]]]:
             predicate = row.get("predicate_id", "")
             if predicate not in STRONG_PREDICATES:
                 continue
-            subject_id = row["subject_id"]
-            object_id = row["object_id"]
-            object_source = row["object_source"]
+            try:
+                subject_id = row["subject_id"]
+                object_id = row["object_id"]
+                object_source = row["object_source"]
+            except KeyError:
+                continue
             result.setdefault(subject_id, {}).setdefault(object_source, set()).add(object_id)
     return result
 

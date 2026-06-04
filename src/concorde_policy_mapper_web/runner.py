@@ -1,4 +1,5 @@
 import json
+import os
 import select
 import subprocess
 import time
@@ -41,10 +42,12 @@ def start_run(
         "--output", str(output_dir),
         "--base-url", base_url,
         "--model", model,
-        "--api-key", api_key,
     ]
     if nexus_base_dir:
         cmd.extend(["--nexus-base-dir", nexus_base_dir])
+
+    env = os.environ.copy()
+    env["MODEL_API_KEY"] = api_key
 
     return subprocess.Popen(
         cmd,
@@ -52,6 +55,7 @@ def start_run(
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
+        env=env,
     )
 
 

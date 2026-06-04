@@ -19,6 +19,18 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 
 
+def _build_category_tags(
+    risk_id: str,
+    category_map: dict[str, dict[str, set[str]]],
+) -> list[dict[str, str]]:
+    tags = []
+    for tax_key, tax_label in TAXONOMY_DISPLAY.items():
+        cats = category_map.get(risk_id, {}).get(tax_key, set())
+        for cat_id in sorted(cats):
+            tags.append({"taxonomy": tax_label, "category": category_display_name(cat_id)})
+    return tags
+
+
 def _find_sssom_path() -> Path | None:
     try:
         import concorde_policy_mapper
@@ -88,15 +100,10 @@ def create_app(
                 "mapped_count": mapped_count,
             }
 
-        risk_categories = {}
-        for risk in risks:
-            rid = risk["risk_id"]
-            tags = []
-            for tax_key, tax_label in TAXONOMY_DISPLAY.items():
-                cats = category_map.get(rid, {}).get(tax_key, set())
-                for cat_id in sorted(cats):
-                    tags.append({"taxonomy": tax_label, "category": category_display_name(cat_id)})
-            risk_categories[rid] = tags
+        risk_categories = {
+            risk["risk_id"]: _build_category_tags(risk["risk_id"], category_map)
+            for risk in risks
+        }
 
         return templates.TemplateResponse(
             request=request,
@@ -127,11 +134,7 @@ def create_app(
         if risk is None:
             return JSONResponse(status_code=404, content={"detail": f"Risk '{risk_id}' not found"})
 
-        category_tags = []
-        for tax_key, tax_label in TAXONOMY_DISPLAY.items():
-            cats = category_map.get(risk_id, {}).get(tax_key, set())
-            for cat_id in sorted(cats):
-                category_tags.append({"taxonomy": tax_label, "category": category_display_name(cat_id)})
+        category_tags = _build_category_tags(risk_id, category_map)
 
         runs = scanner.list_runs(runs_dir)
         return templates.TemplateResponse(
@@ -211,12 +214,15 @@ def create_app(
                 return JSONResponse(status_code=400, content={"detail": f"Example '{example_name}' not found"})
             run_id = runner.generate_run_id(example_name)
         elif source_type == "upload" and file:
+            safe_name = Path(file.filename).name if file.filename else ""
+            if not safe_name:
+                return JSONResponse(status_code=400, content={"detail": "Invalid filename"})
             upload_dir = runs_dir / "_uploads"
             upload_dir.mkdir(parents=True, exist_ok=True)
-            policy_path = upload_dir / file.filename
+            policy_path = upload_dir / safe_name
             content = await file.read()
             policy_path.write_bytes(content)
-            run_id = runner.generate_run_id(file.filename)
+            run_id = runner.generate_run_id(safe_name)
         else:
             return JSONResponse(status_code=400, content={"detail": "No policy source provided"})
 
@@ -243,8 +249,16 @@ def create_app(
             return JSONResponse(status_code=404, content={"detail": f"Run '{run_id}' not found"})
 
         def cleanup_generator():
-            yield from runner.stream_progress(process, run_id)
-            active_runs.pop(run_id, None)
+            try:
+                yield from runner.stream_progress(process, run_id)
+            finally:
+                active_runs.pop(run_id, None)
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
 
         return StreamingResponse(cleanup_generator(), media_type="text/event-stream")
 
