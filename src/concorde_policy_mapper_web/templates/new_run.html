@@ -1,2 +1,175 @@
 {% extends "base.html" %}
-{% block content %}<h2>New Run</h2>{% endblock %}
+
+{% block title %}New Run — Concorde Policy Mapper{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl" x-data="newRunApp()">
+  <h2 class="text-2xl font-bold text-gray-900 mb-6">New Run</h2>
+
+  <form @submit.prevent="startRun" x-show="!running" class="bg-white rounded-lg border border-gray-200 p-6 space-y-6">
+    <div>
+      <label class="block text-sm font-semibold text-gray-700 mb-2">Policy Source</label>
+      <div class="space-y-3">
+        <div>
+          <label class="flex items-center gap-2">
+            <input type="radio" x-model="sourceType" value="example" class="text-indigo-600" />
+            <span class="text-sm text-gray-700">Bundled example</span>
+          </label>
+          <select x-show="sourceType === 'example'" x-model="selectedExample"
+                  class="mt-2 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+            <option value="">Select a policy...</option>
+            {% for policy in policies %}
+            <option value="{{ policy.name }}">{{ policy.name }} ({{ policy.file_type }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="flex items-center gap-2">
+            <input type="radio" x-model="sourceType" value="upload" class="text-indigo-600" />
+            <span class="text-sm text-gray-700">Upload document</span>
+          </label>
+          <input x-show="sourceType === 'upload'" type="file" x-ref="fileInput"
+                 @change="hasFile = $refs.fileInput.files.length > 0"
+                 accept=".md,.txt,.json,.pdf,.docx,.html"
+                 class="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+        </div>
+      </div>
+    </div>
+
+    <div class="border-t border-gray-200 pt-6">
+      <h3 class="text-sm font-semibold text-gray-700 mb-3">LLM Settings</h3>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Base URL</label>
+          <input type="text" x-model="baseUrl" class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Model</label>
+          <input type="text" x-model="modelName" class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">API Key</label>
+          <input type="password" x-model="apiKey" class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="w-full bg-indigo-600 text-white text-sm font-medium px-4 py-3 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            :disabled="!canSubmit">
+      Start Extraction
+    </button>
+  </form>
+
+  <div x-show="running" x-cloak class="bg-white rounded-lg border border-gray-200 p-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">Extraction Progress</h3>
+    <div class="space-y-3">
+      <template x-for="stage in stages" :key="stage.name">
+        <div class="flex items-center gap-3">
+          <div x-show="stage.status === 'done'" class="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <div x-show="stage.status === 'running'" class="w-5 h-5 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div>
+          <div x-show="stage.status === 'pending'" class="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+          <span class="text-sm" :class="stage.status === 'done' ? 'text-gray-900' : stage.status === 'running' ? 'text-indigo-600 font-medium' : 'text-gray-400'" x-text="stage.label"></span>
+        </div>
+      </template>
+    </div>
+    <div x-show="error" x-cloak class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700" x-text="error"></div>
+  </div>
+</div>
+
+<script>
+function newRunApp() {
+  return {
+    sourceType: 'example',
+    selectedExample: '',
+    hasFile: false,
+    baseUrl: '{{ env_base_url }}',
+    modelName: '{{ env_model }}',
+    apiKey: '{{ env_api_key }}',
+    running: false,
+    error: null,
+    stages: [
+      { name: 'extract', label: 'Extracting risks from documents', status: 'pending' },
+      { name: 'mitigations', label: 'Attaching mitigations', status: 'pending' },
+      { name: 'results', label: 'Writing extraction results', status: 'pending' },
+    ],
+
+    get canSubmit() {
+      if (this.sourceType === 'example') return this.selectedExample !== '';
+      return this.hasFile;
+    },
+
+    async startRun() {
+      this.running = true;
+      this.error = null;
+
+      const formData = new FormData();
+      formData.append('source_type', this.sourceType);
+      formData.append('base_url', this.baseUrl);
+      formData.append('model', this.modelName);
+      formData.append('api_key', this.apiKey);
+
+      if (this.sourceType === 'example') {
+        formData.append('example_name', this.selectedExample);
+      } else {
+        formData.append('file', this.$refs.fileInput.files[0]);
+      }
+
+      try {
+        const resp = await fetch('/run', { method: 'POST', body: formData });
+        if (!resp.ok) {
+          this.error = 'Failed to start run';
+          this.running = false;
+          return;
+        }
+        const { run_id } = await resp.json();
+        this.connectSSE(run_id);
+      } catch (e) {
+        this.error = 'Failed to start run: ' + e.message;
+        this.running = false;
+      }
+    },
+
+    connectSSE(runId) {
+      const es = new EventSource('/run/stream/' + runId);
+      let currentStage = null;
+      let finished = false;
+
+      es.addEventListener('stage', (e) => {
+        const data = JSON.parse(e.data);
+        if (currentStage && currentStage !== data.stage) {
+          const prev = this.stages.find(s => s.name === currentStage);
+          if (prev) prev.status = 'done';
+        }
+        currentStage = data.stage;
+        const stage = this.stages.find(s => s.name === data.stage);
+        if (stage) stage.status = 'running';
+      });
+
+      es.addEventListener('done', (e) => {
+        finished = true;
+        es.close();
+        this.stages.forEach(s => { if (s.status !== 'done') s.status = 'done'; });
+        const data = JSON.parse(e.data);
+        setTimeout(() => { window.location.href = data.redirect; }, 500);
+      });
+
+      es.addEventListener('pipeline_error', (e) => {
+        finished = true;
+        es.close();
+        const data = JSON.parse(e.data);
+        this.error = data.message;
+      });
+
+      es.onerror = () => {
+        if (!finished) {
+          es.close();
+          this.error = 'Lost connection to server. The extraction may still be running.';
+        }
+      };
+    }
+  };
+}
+</script>
+{% endblock %}
