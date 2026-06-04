@@ -13,6 +13,7 @@ COPY --from=concorde-policy-mapper data /deps/concorde-policy-mapper/data
 COPY --from=concorde-policy-mapper pyproject.toml /deps/concorde-policy-mapper/
 RUN pip install --no-cache-dir --no-deps /deps/concorde-policy-mapper
 RUN pip install --no-cache-dir instructor openai pydantic typer pyyaml jinja2 docling "torch>=2.11,<2.12" "transformers>=5.5,<5.6" sentence-transformers rank-bm25 nltk numpy mlflow pylate
+RUN ln -s /deps/concorde-policy-mapper/data /usr/local/lib/python3.12/data
 
 COPY --from=concorde-policy-mapper policy_examples /app/policy_examples
 

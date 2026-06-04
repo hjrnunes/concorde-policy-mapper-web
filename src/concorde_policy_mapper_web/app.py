@@ -32,18 +32,19 @@ def _build_category_tags(
 
 
 def _find_sssom_path() -> Path | None:
+    _SSSOM = "risk_to_category.sssom.tsv"
     try:
-        import concorde_policy_mapper
-        pkg_dir = Path(concorde_policy_mapper.__file__).parent
-        candidate = pkg_dir.parent.parent / "data" / "risk_to_category.sssom.tsv"
+        import concorde_policy_mapper.extract.mitigations as _m
+        # Use the same parents[3] / "data" path the CLI uses for its own data files
+        candidate = Path(_m.__file__).resolve().parents[3] / "data" / _SSSOM
         if candidate.exists():
             return candidate
     except ImportError:
         pass
-    local = Path("data") / "risk_to_category.sssom.tsv"
+    local = Path("data") / _SSSOM
     if local.exists():
         return local
-    sibling = Path(__file__).resolve().parent.parent.parent.parent / "concorde-policy-mapper" / "data" / "risk_to_category.sssom.tsv"
+    sibling = Path(__file__).resolve().parent.parent.parent.parent / "concorde-policy-mapper" / "data" / _SSSOM
     if sibling.exists():
         return sibling
     return None

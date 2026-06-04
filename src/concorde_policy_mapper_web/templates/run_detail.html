@@ -15,7 +15,7 @@
     </div>
     <div class="flex gap-3 mt-2 flex-wrap">
       {% if data.token_usage %}
-      <span class="text-xs px-2 py-1 bg-gray-100 rounded">Tokens: {{ data.token_usage.total | default(0) }}</span>
+      <span class="text-xs px-2 py-1 bg-gray-100 rounded">Tokens: {{ data.token_usage.total_tokens | default(data.token_usage.total) | default(0) }}</span>
       {% endif %}
       {% if data.retrieval_stats %}
       <span class="text-xs px-2 py-1 bg-gray-100 rounded">Chunks: {{ data.retrieval_stats.total_chunks | default(0) }}</span>
