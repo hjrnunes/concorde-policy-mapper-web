@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: concorde-policy-mapper-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: concorde-policy-mapper-web
+  template:
+    metadata:
+      labels:
+        app: concorde-policy-mapper-web
+    spec:
+      containers:
+        - name: web
+          image: concorde-policy-mapper-web:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: MODEL_BASE_URL
+              value: ""
+            - name: MODEL_NAME
+              value: ""
+            - name: MODEL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: concorde-policy-mapper-web
+                  key: api-key
+            - name: NEXUS_BASE_DIR
+              value: /opt/nexus
+            - name: RUNS_DIR
+              value: /app/runs
+            - name: EXAMPLES_DIR
+              value: /app/policy_examples
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
