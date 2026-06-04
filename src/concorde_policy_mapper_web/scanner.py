@@ -68,7 +68,7 @@ def load_category_map(sssom_path: Path) -> dict[str, dict[str, set[str]]]:
     result: dict[str, dict[str, set[str]]] = {}
     with open(sssom_path) as f:
         reader = csv.DictReader(
-            (line for line in f if not line.startswith("#")),
+            (line for line in f if not line.startswith("#") and line.strip()),
             delimiter="\t",
         )
         for row in reader:

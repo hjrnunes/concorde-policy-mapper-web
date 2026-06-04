@@ -31,6 +31,9 @@ def _find_sssom_path() -> Path | None:
     local = Path("data") / "risk_to_category.sssom.tsv"
     if local.exists():
         return local
+    sibling = Path(__file__).resolve().parent.parent.parent.parent / "concorde-policy-mapper" / "data" / "risk_to_category.sssom.tsv"
+    if sibling.exists():
+        return sibling
     return None
 
 
