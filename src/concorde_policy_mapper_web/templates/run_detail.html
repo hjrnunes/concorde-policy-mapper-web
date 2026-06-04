@@ -1,2 +1,137 @@
 {% extends "base.html" %}
-{% block content %}<div>{{ run_name }}</div>{% for r in risks %}<div>{{ r.risk_name }}</div>{% endfor %}{% endblock %}
+
+{% block title %}{{ run_name }} — Concorde Policy Mapper{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl" x-data="runDetailApp()">
+  <!-- Header -->
+  <div class="mb-6 pb-4 border-b border-gray-200">
+    <h2 class="text-2xl font-bold text-gray-900">{{ run_name }}</h2>
+    <div class="mt-1 text-sm text-gray-500">
+      Source: {{ data.source_documents | join(', ') }}
+      · {{ risks | length }} risks
+      {% if data.metadata %}· Model: {{ data.metadata.model }}{% endif %}
+      {% if data.metadata and data.metadata.timestamp %}· {{ data.metadata.timestamp[:10] }}{% endif %}
+    </div>
+    <div class="flex gap-3 mt-2 flex-wrap">
+      {% if data.token_usage %}
+      <span class="text-xs px-2 py-1 bg-gray-100 rounded">Tokens: {{ data.token_usage.total | default(0) }}</span>
+      {% endif %}
+      {% if data.retrieval_stats %}
+      <span class="text-xs px-2 py-1 bg-gray-100 rounded">Chunks: {{ data.retrieval_stats.total_chunks | default(0) }}</span>
+      {% endif %}
+      {% if data.eval and data.eval.f1 is defined %}
+      <span class="text-xs px-2 py-1 bg-green-50 text-green-700 rounded">Eval F1: {{ "%.3f" | format(data.eval.f1) }}</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Taxonomy tabs -->
+  <div class="flex gap-0 border-b-2 border-gray-200 mb-4">
+    <button @click="activeTab = 'all'"
+            :class="activeTab === 'all' ? 'border-indigo-600 text-indigo-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'"
+            class="px-4 py-2 text-sm border-b-2 -mb-[2px]">
+      All Risks ({{ risks | length }})
+    </button>
+    {% for tax_key, tax_data in taxonomy_groups.items() %}
+    <button @click="activeTab = '{{ tax_key }}'"
+            :class="activeTab === '{{ tax_key }}' ? 'border-indigo-600 text-indigo-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'"
+            class="px-4 py-2 text-sm border-b-2 -mb-[2px]">
+      {{ tax_data.label }} ({{ tax_data.mapped_count }})
+    </button>
+    {% endfor %}
+  </div>
+
+  <!-- All Risks tab -->
+  <div x-show="activeTab === 'all'" class="space-y-2">
+    {% for risk in risks %}
+    <a href="/runs/{{ run_name }}/risk/{{ risk.risk_id }}"
+       class="block px-4 py-3 bg-white border border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-sm transition-all">
+      <div class="flex justify-between items-center">
+        <div>
+          <span class="font-semibold text-gray-900">{{ risk.risk_name }}</span>
+          <span class="ml-2 text-xs text-gray-400">{{ risk.risk_id }}</span>
+        </div>
+        <div class="flex gap-2 items-center text-xs">
+          {% if risk.grounding_confidence %}
+          {% set gc = risk.grounding_confidence %}
+          {% set gc_colors = {"high": "bg-green-100 text-green-800", "medium": "bg-yellow-100 text-yellow-800", "low": "bg-red-100 text-red-800"} %}
+          <span class="px-1.5 py-0.5 rounded {{ gc_colors.get(gc, 'bg-gray-100 text-gray-600') }}">{{ gc }}</span>
+          {% endif %}
+          <span class="text-gray-500">conf {{ "%.2f" | format(risk.confidence) }}</span>
+          <span class="text-gray-400">{{ risk.evidence | length }} ev · {{ risk.mitigations | default([]) | length }} mit</span>
+          <span class="text-gray-300">&rarr;</span>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Taxonomy-grouped tabs -->
+  {% for tax_key, tax_data in taxonomy_groups.items() %}
+  <div x-show="activeTab === '{{ tax_key }}'" x-cloak class="space-y-4">
+    {% for cat_name, cat_risks in tax_data.groups.items() %}
+    <div>
+      <div class="flex justify-between items-center px-3 py-2 bg-indigo-50 rounded-lg mb-2">
+        <span class="font-semibold text-sm text-indigo-700">{{ cat_name }}</span>
+        <span class="text-xs text-gray-500">{{ cat_risks | length }} risks</span>
+      </div>
+      <div class="space-y-1 ml-2">
+        {% for risk in cat_risks %}
+        <a href="/runs/{{ run_name }}/risk/{{ risk.risk_id }}"
+           class="block px-3 py-2 bg-white border border-gray-200 rounded-lg hover:border-indigo-300 transition-all">
+          <div class="flex justify-between items-center">
+            <div>
+              <span class="font-medium text-sm text-gray-900">{{ risk.risk_name }}</span>
+              <span class="ml-2 text-xs text-gray-400">{{ risk.risk_id }}</span>
+            </div>
+            <div class="flex gap-2 items-center text-xs">
+              {% if risk.grounding_confidence %}
+              {% set gc = risk.grounding_confidence %}
+              {% set gc_colors = {"high": "bg-green-100 text-green-800", "medium": "bg-yellow-100 text-yellow-800", "low": "bg-red-100 text-red-800"} %}
+              <span class="px-1.5 py-0.5 rounded {{ gc_colors.get(gc, 'bg-gray-100 text-gray-600') }}">{{ gc }}</span>
+              {% endif %}
+              <span class="text-gray-500">{{ "%.2f" | format(risk.confidence) }}</span>
+              <span class="text-gray-400">{{ risk.evidence | length }} ev · {{ risk.mitigations | default([]) | length }} mit</span>
+              <span class="text-gray-300">&rarr;</span>
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if tax_data.uncategorized %}
+    <div class="mt-4 pt-3 border-t border-dashed border-gray-300">
+      <div class="flex justify-between items-center px-3 py-2 bg-gray-50 rounded-lg border border-dashed border-gray-200 mb-2">
+        <span class="font-medium text-sm text-gray-400">Not mapped to {{ tax_data.label }}</span>
+        <span class="text-xs text-gray-400">{{ tax_data.uncategorized | length }} risks</span>
+      </div>
+      <div class="space-y-1 ml-2 opacity-60">
+        {% for risk in tax_data.uncategorized %}
+        <a href="/runs/{{ run_name }}/risk/{{ risk.risk_id }}"
+           class="block px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:border-gray-300 transition-all">
+          <div class="flex justify-between items-center">
+            <span class="font-medium text-sm text-gray-600">{{ risk.risk_name }}</span>
+            <div class="flex gap-2 items-center text-xs">
+              <span class="text-gray-400">{{ "%.2f" | format(risk.confidence) }}</span>
+              <span class="text-gray-400">{{ risk.evidence | length }} ev · {{ risk.mitigations | default([]) | length }} mit</span>
+              <span class="text-gray-300">&rarr;</span>
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+function runDetailApp() {
+  return { activeTab: 'all' };
+}
+</script>
+{% endblock %}
