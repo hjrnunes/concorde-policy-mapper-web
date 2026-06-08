@@ -42,6 +42,11 @@ def start_run(
         "--output", str(output_dir),
         "--base-url", base_url,
         "--model", model,
+        "--bm25-rescue-rank", "10",
+        "--rrf-min-score", "0.01",
+        "--grounding-passes", "3",
+        "--expansion-passes", "3",
+        "--expand-siblings",
     ]
     if nexus_base_dir:
         cmd.extend(["--nexus-base-dir", nexus_base_dir])
