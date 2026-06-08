@@ -43,6 +43,8 @@ Open http://localhost:8080.
 | `MODEL_NAME` | Model identifier | — |
 | `MODEL_API_KEY` | LLM authentication key | `none` |
 | `NEXUS_BASE_DIR` | Path to ai-atlas-nexus repo checkout | — |
+| `BI_ENCODER_MODEL_URL` | Bi-encoder embeddings endpoint | — |
+| `CROSS_ENCODER_MODEL_URL` | Cross-encoder reranker endpoint | — |
 | `PORT` | Server listen port | `8080` |
 
 ## Deployment (OpenShift)
@@ -108,9 +110,7 @@ The build script (`scripts/oc-build.sh`) assembles both `concorde-policy-mapper`
 
 ### Current deployment
 
-- **Cluster**: `api.u1q6z7t9c5c9x9t.262f.p3.openshiftapps.com`
 - **Namespace**: `concorde-policy-mapper-web`
-- **Route**: https://concorde-policy-mapper-web-concorde-policy-mapper-web.apps.rosa.u1q6z7t9c5c9x9t.262f.p3.openshiftapps.com
 - **Model**: `gemma-4-26b-a4b-it` via vLLM on the same cluster
 
 ## Lessons Learned / Known Issues

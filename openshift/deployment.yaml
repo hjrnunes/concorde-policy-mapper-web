@@ -21,7 +21,7 @@ spec:
             - containerPort: 8080
           env:
             - name: MODEL_BASE_URL
-              value: "https://gemma-4-26b-a4b-it-model-serving.apps.rosa.u7s1k8g5z8a0s2l.c3qf.p3.openshiftapps.com/v1"
+              value: ""
             - name: MODEL_NAME
               value: "gemma-4-26b-a4b-it"
             - name: MODEL_API_KEY
@@ -36,6 +36,10 @@ spec:
               value: /app/runs
             - name: EXAMPLES_DIR
               value: /app/policy_examples
+            - name: BI_ENCODER_MODEL_URL
+              value: ""
+            - name: CROSS_ENCODER_MODEL_URL
+              value: ""
           resources:
             requests:
               cpu: 250m
